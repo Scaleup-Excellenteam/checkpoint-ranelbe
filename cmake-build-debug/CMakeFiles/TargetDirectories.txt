@@ -1,0 +1,3 @@
+/home/ranel/CLionProjects/checkpoint-new/cmake-build-debug/CMakeFiles/checkpoint.dir
+/home/ranel/CLionProjects/checkpoint-new/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/ranel/CLionProjects/checkpoint-new/cmake-build-debug/CMakeFiles/rebuild_cache.dir
