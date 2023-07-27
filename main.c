@@ -4,24 +4,28 @@
 #include "macros.h"
 
 static struct School school = { .DB = { { NULL } } };
+//static struct topStudents* topStudents[NUM_OF_LEVELS][TOP10];
 
 // ================== Functions prototypes ==================
 FILE* openFile(const char* filename,const char* mode);
 void initDB();
-void printDB(int numOfLevels, int numOfClasses);
+void printDB();
+void printStudent(struct Student* student);
 void addToDB(struct Student* newStudent, int i, int j);
+void deleteFromDB(struct Student* student, int i, int j);
 void menu();
 void registerStudent();
 void deleteStudent();
 void top10Students();
 void freeDB();
 
+
 // ================== Main function =========================
 int main()
 {
     initDB();
     menu();
-    printDB(NUM_OF_LEVELS, NUM_OF_CLASSES);
+    printDB();
     atexit(freeDB);
     return EXIT_SUCCESS;
 }
@@ -30,31 +34,40 @@ int main()
 /**
  * Print the school database
  */
-void printDB(int numOfLevels, int numOfClasses)
+void printDB()
 {
-    for (int level = 0; level < numOfLevels; level++) {
-        for (int class = 0; class < numOfClasses; class++) {
+    for (int level = 0; level < NUM_OF_LEVELS; level++) {
+        for (int class = 0; class < NUM_OF_CLASSES; class++) {
             struct Student* curr = school.DB[level][class];
             while (curr != NULL) {
-                printf("=======================================\n");
-                printf("Student: %s %s\n", curr->firstName, curr->lastName);
-                printf("Phone: %s\n", curr->phone);
-                printf("Level ID: %d\n", curr->levelID);
-                printf("Class ID: %d\n", curr->classID);
-                printf("Grades:");
-                for (int i = 0; i < NUM_OF_COURSES; i++) {
-                    printf(" %d", curr->grades[i]);
-                }
-                printf("\nAverage grade: %d\n", curr->avgGrade);
-                printf("\n");
-                printf("=======================================\n\n");
-
+                printStudent(curr);
                 // Move to the next student
                 curr = curr->next;
             }
         }
     }
 }
+
+/**
+ * Print a student record
+ * @param student
+ */
+void printStudent(struct Student* student)
+{
+    printf("=======================================\n");
+    printf("Student: %s %s\n", student->firstName, student->lastName);
+    printf("Phone: %s\n", student->phone);
+    printf("Level ID: %d\n", student->levelID);
+    printf("Class ID: %d\n", student->classID);
+    printf("Grades:");
+    for (int i = 0; i < NUM_OF_COURSES; i++) {
+        printf(" %d", student->grades[i]);
+    }
+    printf("\nAverage grade: %d\n", student->avgGrade);
+    printf("\n");
+    printf("=======================================\n\n");
+}
+
 
 /**
  * Open a file and check for errors
@@ -82,8 +95,7 @@ void initDB()
     char firstName[NAME_LEN], lastName[NAME_LEN], phone[PHONE_LEN];
     int levelID, classID;
 
-    while (fscanf(fp, "%s %s %s %d %d", firstName, lastName,
-                  phone, &levelID, &classID) == 5) {
+    while (fscanf(fp, "%s %s %s %d %d", firstName, lastName, phone, &levelID, &classID) == 5) {
 
         // Allocate memory for new student
         struct Student* newStudent = (struct Student*)malloc(sizeof(struct Student));
@@ -95,7 +107,7 @@ void initDB()
         // use snprintf so we won't have buffer overflow
         snprintf(newStudent->firstName, NAME_LEN, "%s", firstName);
         snprintf(newStudent->lastName, NAME_LEN, "%s", lastName);
-        snprintf(newStudent->phone, PHONE_LEN, "%s", phone);
+        snprintf(newStudent->phone, PHONE_LEN+1, "%s", phone);
         newStudent->levelID = levelID;
         newStudent->classID = classID;
 
@@ -104,6 +116,7 @@ void initDB()
             if (fscanf(fp, "%d", &newStudent->grades[i]) != 1) {
                 printf("Error reading grades\n");
                 free(newStudent);
+                fclose(fp);
                 exit(EXIT_FAILURE);
             }
             sumOfGrades += newStudent->grades[i];
@@ -147,6 +160,29 @@ void addToDB(struct Student* newStudent, int i, int j) {
 }
 
 /**
+ * Delete a student from the database
+ * @param student
+ */
+void deleteFromDB(struct Student* student, int i, int j)
+{
+    // Student found, delete the student from the linked list
+    if (student->prev != NULL) {
+        student->prev->next = student->next;
+    }
+    else {
+        school.DB[i][j] = student->next;
+    }
+
+    if (student->next != NULL) {
+        student->next->prev = student->prev;
+    }
+
+    // Free memory occupied by the student
+    free(student);
+    printf("Student deleted successfully.\n");
+}
+
+/**
  * user interface to perform operations on the database
  */
 void menu()
@@ -156,7 +192,7 @@ void menu()
         printf("\n===== Menu =====\n");
         printf("0. Exit\n");
         printf("1. Admission of a new student\n");
-        printf("2. Deleting a student\n");
+        printf("2. Delete a student\n");
         printf("3. top10 students\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
@@ -220,7 +256,30 @@ void registerStudent()
  */
 void deleteStudent()
 {
+    // Read student phone number from user
+    int level, class;
+    char phone[PHONE_LEN];
 
+    printf("Student's level: ");
+    scanf("%d", &level);
+    printf("Student's class: ");
+    scanf("%d", &class);
+    printf("student's phone: ");
+    scanf("%s", phone);
+
+    // Find the student in the specified level and class
+    struct Student* curr = school.DB[level - 1][class - 1];
+    while (curr != NULL)
+    {
+        if (strcmp(curr->phone, phone) == 0){
+            deleteFromDB(curr, level - 1, class - 1);
+            return; // Exit the function after deletion
+        }
+        curr = curr->next;
+    }
+
+    // If the function reaches this point, the student was not found
+    printf("Student with the given level, class, and phone number not found.\n");
 }
 
 /**
@@ -228,6 +287,16 @@ void deleteStudent()
  */
 void top10Students()
 {
+    //read course number from user
+    int courseNum;
+    printf("Enter course number: ");
+    scanf("%d", &courseNum);
+
+    for (int level = 0; level < NUM_OF_LEVELS; level++) {
+
+
+
+    }
 
 }
 

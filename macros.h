@@ -1,7 +1,7 @@
 #define NUM_OF_LEVELS 12
 #define NUM_OF_CLASSES 10
 #define NUM_OF_COURSES 10
-#define NAME_LEN 128
+#define NAME_LEN 50
 #define PHONE_LEN 10
 #define TOP10 10
 #define FILENAME "students.txt"
@@ -23,4 +23,9 @@ struct Student {
 
 struct School {
     struct Student* DB[NUM_OF_LEVELS][NUM_OF_CLASSES];
+};
+
+struct topStudents {
+    struct Student* students;
+    struct topStudents* next;
 };
