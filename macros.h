@@ -2,7 +2,7 @@
 #define NUM_OF_CLASSES 10
 #define NUM_OF_COURSES 10
 #define NAME_LEN 50
-#define PHONE_LEN 10
+#define PHONE_LEN 50
 #define TOP10 10
 #define FILENAME "students.txt"
 

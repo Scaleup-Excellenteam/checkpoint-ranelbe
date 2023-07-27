@@ -16,6 +16,8 @@ void deleteFromDB(struct Student* student, int i, int j);
 void menu();
 void registerStudent();
 void deleteStudent();
+struct Student* searchStudentByName();
+void printStudentByName();
 void top10Students();
 void freeDB();
 
@@ -92,11 +94,10 @@ FILE* openFile(const char* filename,const char* mode)
 void initDB()
 {
     FILE* fp = openFile(FILENAME,"r");
-    char firstName[NAME_LEN], lastName[NAME_LEN], phone[PHONE_LEN];
+    char firstName[NAME_LEN], lastName[NAME_LEN], phone[NAME_LEN];
     int levelID, classID;
 
     while (fscanf(fp, "%s %s %s %d %d", firstName, lastName, phone, &levelID, &classID) == 5) {
-
         // Allocate memory for new student
         struct Student* newStudent = (struct Student*)malloc(sizeof(struct Student));
         if (newStudent == NULL) {
@@ -193,7 +194,8 @@ void menu()
         printf("0. Exit\n");
         printf("1. Admission of a new student\n");
         printf("2. Delete a student\n");
-        printf("3. top10 students\n");
+        printf("4. Search student by name\n");
+        printf("5. top10 students\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
 
@@ -204,8 +206,8 @@ void menu()
             case 2:
                 deleteStudent();
                 break;
-            case 3:
-                top10Students();
+            case 4:
+                printStudentByName();
                 break;
 
             default:
@@ -282,6 +284,49 @@ void deleteStudent()
     printf("Student with the given level, class, and phone number not found.\n");
 }
 
+
+/**
+ * Search for a student in the database
+ * @return pointer to the student if found, NULL otherwise
+ */
+struct Student* searchStudentByName()
+{
+    char firstName[NAME_LEN];
+    char lastName[NAME_LEN];
+
+    printf("Enter student's first name: ");
+    scanf("%s", firstName);
+
+    printf("Enter student's last name: ");
+    scanf("%s", lastName);
+
+    for (int level = 0; level < NUM_OF_LEVELS; level++) {
+        for (int class = 0; class < NUM_OF_CLASSES; class++) {
+            struct Student* curr = school.DB[level][class];
+            while (curr != NULL) {
+                if (strcmp(curr->firstName, firstName) == 0 &&
+                    strcmp(curr->lastName, lastName) == 0) {
+                    return curr; // Found the student
+                }
+                curr = curr->next;
+            }
+        }
+    }
+    return NULL; // Student not found
+}
+
+/**
+ * Print a student record by name
+ */
+void printStudentByName() {
+    struct Student *student = searchStudentByName();
+    if (student == NULL) {
+        printf("Student not found.\n");
+        return;
+    }
+    printStudent(student);
+}
+
 /**
  * Print the top 10 students in each level for the given course
  */
@@ -293,7 +338,6 @@ void top10Students()
     scanf("%d", &courseNum);
 
     for (int level = 0; level < NUM_OF_LEVELS; level++) {
-
 
 
     }
@@ -316,4 +360,3 @@ void freeDB()
         }
     }
 }
-
