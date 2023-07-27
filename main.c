@@ -3,20 +3,25 @@
 #include <string.h>
 #include "macros.h"
 
-static struct School school;
+static struct School school = { .DB = { { NULL } } };
 
 // ================== Functions prototypes ==================
 FILE* openFile(const char* filename,const char* mode);
 void initDB();
-void printDB();
+void printDB(int numOfLevels, int numOfClasses);
 void addToDB(struct Student* newStudent, int i, int j);
+void menu();
+void registerStudent();
+void deleteStudent();
+void top10Students();
 void freeDB();
 
-
 // ================== Main function =========================
-int main() {
+int main()
+{
     initDB();
-    printDB();
+    menu();
+    printDB(NUM_OF_LEVELS, NUM_OF_CLASSES);
     atexit(freeDB);
     return EXIT_SUCCESS;
 }
@@ -25,11 +30,10 @@ int main() {
 /**
  * Print the school database
  */
-void printDB()
+void printDB(int numOfLevels, int numOfClasses)
 {
-    printf("Printing DB:\n");
-    for (int level = 0; level < NUM_OF_LEVELS; level++) {
-        for (int class = 0; class < NUM_OF_CLASSES; class++) {
+    for (int level = 0; level < numOfLevels; level++) {
+        for (int class = 0; class < numOfClasses; class++) {
             struct Student* curr = school.DB[level][class];
             while (curr != NULL) {
                 printf("=======================================\n");
@@ -41,6 +45,7 @@ void printDB()
                 for (int i = 0; i < NUM_OF_COURSES; i++) {
                     printf(" %d", curr->grades[i]);
                 }
+                printf("\nAverage grade: %d\n", curr->avgGrade);
                 printf("\n");
                 printf("=======================================\n\n");
 
@@ -94,14 +99,16 @@ void initDB()
         newStudent->levelID = levelID;
         newStudent->classID = classID;
 
+        int sumOfGrades = 0;
         for (int i = 0; i < NUM_OF_COURSES; i++) {
-            if(fscanf(fp, "%d", &newStudent->grades[i]) != 1) {
+            if (fscanf(fp, "%d", &newStudent->grades[i]) != 1) {
                 printf("Error reading grades\n");
                 free(newStudent);
                 exit(EXIT_FAILURE);
             }
+            sumOfGrades += newStudent->grades[i];
         }
-
+        newStudent->avgGrade = sumOfGrades / NUM_OF_COURSES;
         // Add the new student to the database
         addToDB(newStudent, levelID-1, classID-1);
     }
@@ -111,24 +118,124 @@ void initDB()
 
 /**
  * Add a new student to the database
+ * in the correct position based on the average grade
  * @param newStudent
  * @param i,j - the position in the database
  */
 void addToDB(struct Student* newStudent, int i, int j) {
-    newStudent->next = school.DB[i][j];
-    newStudent->prev = NULL;
-
-    if (school.DB[i][j] != NULL) {
-        school.DB[i][j]->prev = newStudent;
+     if (school.DB[i][j] == NULL || newStudent->avgGrade > school.DB[i][j]->avgGrade) {
+        newStudent->next = school.DB[i][j];
+        newStudent->prev = NULL;
+        if (school.DB[i][j] != NULL) {
+            school.DB[i][j]->prev = newStudent;
+        }
+        school.DB[i][j] = newStudent;
+        return;
     }
 
-    school.DB[i][j] = newStudent;
+    struct Student* curr = school.DB[i][j];
+    while (curr->next != NULL && newStudent->avgGrade <= curr->next->avgGrade) {
+        curr = curr->next;
+    }
+    newStudent->next = curr->next;
+    newStudent->prev = curr;
+
+    if (curr->next != NULL) {
+        curr->next->prev = newStudent;
+    }
+    curr->next = newStudent;
+}
+
+/**
+ * user interface to perform operations on the database
+ */
+void menu()
+{
+    int choice;
+    do {
+        printf("\n===== Menu =====\n");
+        printf("0. Exit\n");
+        printf("1. Admission of a new student\n");
+        printf("2. Deleting a student\n");
+        printf("3. top10 students\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch (choice) {
+            case 1:
+                registerStudent();
+                break;
+            case 2:
+                deleteStudent();
+                break;
+            case 3:
+                top10Students();
+                break;
+
+            default:
+                printf("Invalid choice. Please try again.\n");
+                break;
+        }
+    } while (choice != 0);
+}
+
+/**
+ * Read student details from the user and add the student to the database
+ */
+void registerStudent()
+{
+    struct Student* newStudent = (struct Student*)malloc(sizeof(struct Student));
+    if (newStudent == NULL) {
+        printf("Error allocating memory for new student\n");
+        exit(EXIT_FAILURE);
+    }
+    // Get student details from the user
+    printf("Enter student details:\n");
+    printf("Enter first name: ");
+    scanf("%s", newStudent->firstName);
+    printf("Enter last name: ");
+    scanf("%s", newStudent->lastName);
+    printf("Enter phone number: ");
+    scanf("%s", newStudent->phone);
+    printf("Enter level ID: ");
+    scanf("%d", &newStudent->levelID);
+    printf("Enter class ID: ");
+    scanf("%d", &newStudent->classID);
+
+    // Get grades from the user
+    int sumOfGrades = 0;
+    for (int i = 0; i < NUM_OF_COURSES; i++) {
+        printf("Enter grade for course %d: ", i+1);
+        scanf("%d", &newStudent->grades[i]);
+        sumOfGrades += newStudent->grades[i];
+    }
+    newStudent->avgGrade = sumOfGrades / NUM_OF_COURSES;
+
+    // Add the new student to the database
+    addToDB(newStudent, newStudent->levelID-1, newStudent->classID-1);
+}
+
+/**
+ * Delete a student record from the database
+ */
+void deleteStudent()
+{
+
+}
+
+/**
+ * Print the top 10 students in each level for the given course
+ */
+void top10Students()
+{
+
 }
 
 /**
  * Free the memory allocated for the database
  */
-void freeDB() {
+void freeDB()
+{
     for (int level = 0; level < NUM_OF_LEVELS; level++) {
         for (int class = 0; class < NUM_OF_CLASSES; class++) {
             struct Student* curr = school.DB[level][class];
@@ -140,3 +247,4 @@ void freeDB() {
         }
     }
 }
+

@@ -3,6 +3,7 @@
 #define NUM_OF_COURSES 10
 #define NAME_LEN 128
 #define PHONE_LEN 10
+#define TOP10 10
 #define FILENAME "students.txt"
 
 
@@ -11,6 +12,7 @@ struct Student {
     char lastName[NAME_LEN];
     char phone[PHONE_LEN];
     int grades[NUM_OF_COURSES];
+    int avgGrade;
     int levelID;
     int classID;
 
