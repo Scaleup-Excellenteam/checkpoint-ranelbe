@@ -7,7 +7,7 @@
 #define FILENAME "students.txt"
 
 
-struct Student {
+typedef struct Student {
     char firstName[NAME_LEN];
     char lastName[NAME_LEN];
     char phone[PHONE_LEN];
@@ -19,13 +19,13 @@ struct Student {
     // Linked list pointers - bidirectional
     struct Student* next;
     struct Student* prev;
-};
+} Student;
 
-struct School {
+typedef struct School {
     struct Student* DB[NUM_OF_LEVELS][NUM_OF_CLASSES];
-};
+} School;
 
-struct topStudents {
-    struct Student* students;
-    struct topStudents* next;
-};
+typedef struct CourseStudent {
+    struct Student* student;
+    struct CourseStudent* next;
+} CourseStudent;
