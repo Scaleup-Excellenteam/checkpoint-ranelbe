@@ -1,54 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+#include <openssl/aes.h>
+#include <unistd.h>
 #include "macros.h"
 
 static School school = { .DB = { { NULL } } };
 static CourseStudent* courseStudents[NUM_OF_LEVELS][NUM_OF_COURSES] = { { NULL } };
-
-// ================== Functions prototypes ==================
-FILE* openFile(const char* filename,const char* mode);
-void initDB();
-Student* parseStudent(const char* line);
-Student* allocateStudent();
-void printDB();
-void printStudent(Student* student);
-void addToDB(Student* newStudent);
-void addToCourseStudents(Student* newStudent);
-CourseStudent* allocateCourseStudent();
-void deleteFromDB(Student* student);
-void deleteFromCourseStudents(Student* student);
-void menu();
-void showMenu();
-void executeCommand(int command);
-void registerStudent();
-void deleteStudent();
-Student* searchStudentByName();
-void updateStudent();
-void showUpdateMenu();
-void executeUpdate(Student* student, int choice);
-void excellentStudents(int numOfStudents);
-void potentialDropouts();
-void averagePerCoursesPerLevel();
-void clearBuffer();
-void freeDB();
-void freeStudents(int level);
-void freeCourseStudents(int level);
-void error(const char* msg);
-
 
 // ================== Main function =========================
 int main()
 {
     initDB();
     menu();
-    printDB();
     atexit(freeDB);
     return EXIT_SUCCESS;
 }
 
 // ================== Functions implementations =============
-
 /**
  * Open a file and check for errors
  * @param filename
@@ -66,10 +37,23 @@ FILE* openFile(const char* filename,const char* mode)
 
 /**
  * Initialize the school database - read the data from the file
+ * If the encrypted file exists, read from it, otherwise read from the regular file.
  */
 void initDB()
 {
-    FILE* fp = openFile(FILENAME,"r");
+    if (access(ENCRYPTED_FILENAME, F_OK) == 0) {
+        readEncryptedFile();
+    } else {
+        readRegularFile();
+    }
+}
+
+/**
+ * Read the regular file
+ */
+void readRegularFile()
+{
+    FILE* fp = openFile(FILENAME, "r");
     char* line = NULL;
     size_t len = 0;
 
@@ -84,8 +68,35 @@ void initDB()
         addToDB(newStudent);
         addToCourseStudents(newStudent);
     }
+    exportToFile(); // Export the database to an encrypted file
+    remove(FILENAME);  //remove the file from disk, because we have the encrypted file
     fclose(fp);
     free(line);
+}
+
+/**
+ * Read the encrypted file
+ */
+void readEncryptedFile()
+{
+    // Encrypted file exists, read and decrypt from it
+    FILE* fp = openFile(ENCRYPTED_FILENAME, "rb");
+    unsigned char ciphertext[128], plaintext[128];
+    int ciphertext_len;
+
+    while (!feof(fp)) {
+        fread(&ciphertext_len, sizeof(int), 1, fp);
+        fread(ciphertext, sizeof(unsigned char), ciphertext_len, fp);
+        decrypt(ciphertext, ciphertext_len, key, iv, (unsigned char*)plaintext);
+        Student* newStudent = parseStudent((const char*)plaintext);
+        if (newStudent == NULL) {
+            fclose(fp);
+            error("Error parsing student data from file");
+        }
+        addToDB(newStudent);
+        addToCourseStudents(newStudent);
+    }
+    fclose(fp);
 }
 
 /**
@@ -325,6 +336,8 @@ void showMenu()
     printf("5. Top10 students in a course for each level\n");
     printf("6. Potential dropouts students\n");
     printf("7. Average grade per course per level\n");
+    printf("8. Print database\n");
+    printf("9. Export to file\n");
     printf("Enter your choice: ");
 }
 
@@ -358,6 +371,12 @@ void executeCommand(int command)
             break;
         case 7:
             averagePerCoursesPerLevel();
+            break;
+        case 8:
+            printDB();
+            break;
+        case 9:
+            exportToFile();
             break;
         default:
             printf("Invalid choice. Please try again.\n");
@@ -603,6 +622,34 @@ void averagePerCoursesPerLevel()
 }
 
 /**
+ * Export the database to a file
+ */
+void exportToFile()
+{
+    FILE* fp = openFile(ENCRYPTED_FILENAME, "wb"); // Open in binary mode for encryption
+    for (int level = 0; level < NUM_OF_LEVELS; level++) {
+        for (int class = 0; class < NUM_OF_CLASSES; class++) {
+            Student* curr = school.DB[level][class];
+            while (curr != NULL) {
+                unsigned char plaintext[128], ciphertext[128];
+                int ciphertext_len = 0, plaintext_len;
+                plaintext_len = snprintf((char*)plaintext, sizeof(plaintext),
+                                         "%s %s %s %d %d %d %d %d %d %d %d %d %d %d %d\n",
+                                         curr->firstName, curr->lastName, curr->phone, curr->levelID, curr->classID,
+                                         curr->grades[0], curr->grades[1], curr->grades[2], curr->grades[3],
+                                         curr->grades[4], curr->grades[5], curr->grades[6], curr->grades[7],
+                                         curr->grades[8], curr->grades[9]);
+                ciphertext_len = encrypt(plaintext, plaintext_len, key, iv, ciphertext);
+                fwrite(&ciphertext_len, sizeof(int), 1, fp);
+                fwrite(ciphertext, sizeof(unsigned char), ciphertext_len, fp);
+                curr = curr->next;
+            }
+        }
+    }
+    fclose(fp);
+}
+
+/**
  * Clear the input buffer
  */
 void clearBuffer()
@@ -663,4 +710,101 @@ void error(const char* msg)
     fprintf(stderr, "Error: %s\n", msg);
     freeDB();
     exit(EXIT_FAILURE);
+}
+
+
+/**
+ * Encrypt the plaintext with the key and iv
+ * @param plaintext - the plaintext to be encrypted
+ * @param plaintext_len - the length of the plaintext
+ * @param key - the key used to encrypt the plaintext
+ * @param iv - the iv used to encrypt the plaintext
+ * @param ciphertext - the ciphertext after encryption
+ * @return int - the length of the ciphertext
+ */
+int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+            unsigned char *iv, unsigned char *ciphertext)
+{
+    EVP_CIPHER_CTX *ctx;
+    int len;
+    int ciphertext_len;
+
+    // create and initialise the context
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        handleEncryptErrors();
+    }
+
+    // initialise the encryption operation
+    if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+        handleEncryptErrors();
+    }
+
+    // provide the message to be encrypted, and obtain the encrypted output
+    if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len)) {
+        handleEncryptErrors();
+    }
+    ciphertext_len = len;
+
+    //Finalise the encryption
+    if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len)) {
+        handleEncryptErrors();
+    }
+    ciphertext_len += len;
+
+    /// clean up
+    EVP_CIPHER_CTX_free(ctx);
+
+    return ciphertext_len;
+}
+
+/**
+ * Decrypt the ciphertext with the key and iv
+ * @param ciphertext - the ciphertext to be decrypted
+ * @param ciphertext_len - the length of the ciphertext
+ * @param key - the key used to decrypt the ciphertext
+ * @param iv - the iv used to decrypt the ciphertext
+ * @param plaintext - the plaintext after decryption
+ * @return int - the length of the plaintext
+ */
+int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+            unsigned char *iv, unsigned char *plaintext)
+{
+    EVP_CIPHER_CTX *ctx;
+    int len;
+    int plaintext_len;
+
+    // create and initialise the context
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        handleEncryptErrors();
+    }
+
+    // initialise the decryption operation
+    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+        handleEncryptErrors();
+    }
+
+    // provide the message to be decrypted
+    if(1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
+        handleEncryptErrors();
+    plaintext_len = len;
+
+    // finalise the decryption
+    if(1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len))
+        handleEncryptErrors();
+    plaintext_len += len;
+    plaintext[plaintext_len] = '\0'; // Add null terminator
+
+    // clean up
+    EVP_CIPHER_CTX_free(ctx);
+
+    return plaintext_len;
+}
+
+/**
+ * Handle errors of the encryption
+ */
+void handleEncryptErrors()
+{
+    ERR_print_errors_fp(stderr);
+    abort();
 }

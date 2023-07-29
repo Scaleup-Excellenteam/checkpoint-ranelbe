@@ -1,0 +1,9 @@
+==85806==
+==85806== HEAP SUMMARY:
+==85806==     in use at exit: 0 bytes in 0 blocks
+==85806==   total heap usage: 176,551 allocs, 176,551 frees, 17,631,224 bytes allocated
+==85806==
+==85806== All heap blocks were freed -- no leaks are possible
+==85806==
+==85806== For lists of detected and suppressed errors, rerun with: -s
+==85806== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

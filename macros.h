@@ -5,6 +5,7 @@
 #define PHONE_LEN 50
 #define TOP10 10
 #define FILENAME "students.txt"
+#define ENCRYPTED_FILENAME "students.enc"
 
 
 typedef struct Student {
@@ -29,3 +30,52 @@ typedef struct CourseStudent {
     struct Student* student;
     struct CourseStudent* next;
 } CourseStudent;
+
+FILE* openFile(const char* filename,const char* mode);
+void initDB();
+void readRegularFile();
+void readEncryptedFile();
+Student* parseStudent(const char* line);
+Student* allocateStudent();
+void printDB();
+void printStudent(Student* student);
+void addToDB(Student* newStudent);
+void addToCourseStudents(Student* newStudent);
+CourseStudent* allocateCourseStudent();
+void deleteFromDB(Student* student);
+void deleteFromCourseStudents(Student* student);
+void menu();
+void showMenu();
+void executeCommand(int command);
+void registerStudent();
+void deleteStudent();
+Student* searchStudentByName();
+void updateStudent();
+void showUpdateMenu();
+void executeUpdate(Student* student, int choice);
+void excellentStudents(int numOfStudents);
+void potentialDropouts();
+void averagePerCoursesPerLevel();
+void exportToFile();
+void clearBuffer();
+void freeDB();
+void freeStudents(int level);
+void freeCourseStudents(int level);
+void error(const char* msg);
+int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+            unsigned char *iv, unsigned char *ciphertext);
+int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+            unsigned char *iv, unsigned char *plaintext);
+void handleEncryptErrors();
+
+
+
+// for debugging purposes I used hardcoded key and iv
+unsigned char key[32] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                          0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35,
+                          0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33,
+                          0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31
+};
+unsigned char iv[16] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                         0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35
+};
